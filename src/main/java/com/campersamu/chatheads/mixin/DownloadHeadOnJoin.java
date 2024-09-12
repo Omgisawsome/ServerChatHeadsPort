@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.net.URL;
+import java.net.URI;
 
 import static com.campersamu.chatheads.ChatHeadsInit.DEFAULT_HEAD_TEXTURE;
 import static com.campersamu.chatheads.ChatHeadsInit.HEAD_CACHE;
@@ -63,7 +63,7 @@ public abstract class DownloadHeadOnJoin {
         //pull the picture
         final BufferedImage image;
         try {
-            image = ImageIO.read(new URL(playerSkinUrl));
+            image = ImageIO.read(URI.create(playerSkinUrl).toURL());
         } catch (Exception e) {
             LOGGER.warn("Failed to get image for {}", player.getName().getString());
             LOGGER.warn(e.toString());
