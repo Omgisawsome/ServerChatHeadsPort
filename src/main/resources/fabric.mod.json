@@ -3,10 +3,11 @@
   "id": "chatheads",
   "version": "${version}",
   "name": "Chatheads",
-  "description": "Use player heads in chat via placeholers, completely serverside!",
+  "description": "PORTED-Use player heads in chat via placeholers, completely serverside!",
   "authors": [
     "Camper_Samu",
-    "Cody (Original Minestom Extension)"
+    "Cody (Original Minestom Extension)",
+    "random_revilo (PORTER)"
   ],
   "contact": {
     "sources": "https://github.com/CampHQmc/ServerChatHeads/",
@@ -24,11 +25,11 @@
     "chatheads.mixins.json"
   ],
   "depends": {
-    "fabricloader": ">=0.16.0",
-    "minecraft": "1.21.x"
+    "fabricloader": "<=16.0.0",
+    "minecraft": "~1.21.11",
+    "polymer": "*"
   },
   "suggests": {
-    "polymer": "*",
     "styledchat": "*"
   }
 }

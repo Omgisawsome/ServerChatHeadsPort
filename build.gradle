@@ -1,27 +1,38 @@
 plugins {
-    id 'fabric-loom' version '1.8.11'
+    // CRITICAL: Must be 1.15-SNAPSHOT for 1.21.11+
+    id 'fabric-loom' version '1.15-SNAPSHOT'
     id 'maven-publish'
 }
 
-version = "${project.mod_version}+${project.minecraft_version}"
+version = project.mod_version
 group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
 
 repositories {
     maven { url "https://maven.nucleoid.xyz/" }
 }
 
+loom {
+    splitEnvironmentSourceSets()
+    mods {
+        "custom-paintings" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+}
+
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
 
-    // This specific format tells Loom to use Intermediary for both the
-    // obfuscation layer AND the readable layer.
-    mappings loom.layered() {
-        officialMojangMappings()
-        // This removes the need for a 'named' layer that doesn't exist yet
-    }
+    // Using Yarn Mappings!
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
 
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
     modImplementation "eu.pb4:placeholder-api:${project.papi_version}"
     modImplementation "eu.pb4:polymer-resource-pack:${project.polymer_version}"
     modImplementation "eu.pb4:polymer-autohost:${project.polymer_version}"
@@ -49,6 +60,6 @@ java {
 
 jar {
     from("LICENSE") {
-        rename { "${it}_${project.archives_base_name}" }
+        rename { "${it}_${project.base.archivesName.get()}"}
     }
 }

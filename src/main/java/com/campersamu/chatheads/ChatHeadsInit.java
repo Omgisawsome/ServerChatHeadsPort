@@ -6,15 +6,19 @@ import eu.pb4.polymer.autohost.impl.AutoHost;
 import eu.pb4.polymer.resourcepack.api.PolymerResourcePackUtils;
 import net.fabricmc.api.DedicatedServerModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Style;
 import net.minecraft.text.Text;
 import net.minecraft.text.TextColor;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.UserCache;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.UUID;
 
@@ -49,11 +53,19 @@ public class ChatHeadsInit implements DedicatedServerModInitializer {
 
         //Register Placeholder
         Placeholders.register(Identifier.of(MODID, PLAYER), (ctx, arg) -> {
-            if (ctx.gameProfile() == null || ctx.server().getUserCache() == null) return PlaceholderResult.value(DEFAULT_HEAD);
+            if (ctx.gameProfile() == null) return PlaceholderResult.value(DEFAULT_HEAD);
+
+            UserCache cache = getCacheRobust(ctx.server());
+            if (cache == null) return PlaceholderResult.value(DEFAULT_HEAD);
+
             if (arg == null || arg.isEmpty())
-                return PlaceholderResult.value(paintHead(HEAD_CACHE.getOrDefault(ctx.gameProfile().getId(), DEFAULT_HEAD_TEXTURE)));
-            final var playerProfile = ctx.server().getUserCache().findByName(arg);
-            return playerProfile.map(gameProfile -> PlaceholderResult.value(paintHead(HEAD_CACHE.getOrDefault(gameProfile.getId(), DEFAULT_HEAD_TEXTURE))))
+                return PlaceholderResult.value(paintHead(HEAD_CACHE.getOrDefault(ctx.gameProfile().id(), DEFAULT_HEAD_TEXTURE)));
+
+            // FIX: 'findByName' returns Optional<GameProfile>. We must unwrap it using .map()
+            var playerProfileOpt = cache.findByName(arg);
+
+            return playerProfileOpt
+                    .map(profile -> PlaceholderResult.value(paintHead(HEAD_CACHE.getOrDefault(profile.id(), DEFAULT_HEAD_TEXTURE))))
                     .orElseGet(() -> PlaceholderResult.value(DEFAULT_HEAD));
         });
 
@@ -69,16 +81,33 @@ public class ChatHeadsInit implements DedicatedServerModInitializer {
         }
     }
 
+    // Helper to find the UserCache regardless of its mapping name
+    @Nullable
+    private static UserCache getCacheRobust(MinecraftServer server) {
+        try {
+            Object services = server.getApiServices();
+            // Look for any method returning UserCache
+            for (Method m : services.getClass().getMethods()) {
+                if (m.getReturnType().getSimpleName().equals("UserCache")) {
+                    return (UserCache) m.invoke(services);
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.error("Failed to find UserCache via reflection", e);
+        }
+        return null;
+    }
+
     //region Util
     public static @NotNull Text paintHead(TextColor[][] head) {
         MutableText text = Text.empty();
         for (int y = 0; y < 8; y++) {
             for (int x = 0; x < 8; x++) {
                 text = text
-                        .append(literal("" + (char) (((int) '\uF810') + y)).setStyle(Style.EMPTY.withColor(head[y][x]).withFont(Identifier.of(MODID, "pixel"))))
-                        .append(literal("\uE001").fillStyle(Style.EMPTY.withFont(Identifier.of(MODID, "pixel"))));
+                        .append(literal("" + (char) (((int) '\uF810') + y)).setStyle(Style.EMPTY.withColor(head[y][x])/*.withFont(Identifier.of(MODID, "pixel"))*/))
+                        .append(literal("\uE001").fillStyle(Style.EMPTY/*.withFont(Identifier.of(MODID, "pixel"))*/));
             }
-            text = text.append(literal("\uE008").fillStyle(Style.EMPTY.withFont(Identifier.of(MODID, "pixel"))));
+            text = text.append(literal("\uE008").fillStyle(Style.EMPTY/*.withFont(Identifier.of(MODID, "pixel"))*/));
         }
 
         text.append(literal("  "));

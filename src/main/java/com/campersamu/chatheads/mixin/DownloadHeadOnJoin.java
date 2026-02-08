@@ -19,6 +19,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.net.URI;
+// Removed unused Map import to keep things clean
 
 import static com.campersamu.chatheads.ChatHeadsInit.DEFAULT_HEAD_TEXTURE;
 import static com.campersamu.chatheads.ChatHeadsInit.HEAD_CACHE;
@@ -33,15 +34,16 @@ public abstract class DownloadHeadOnJoin {
     private MinecraftServer server;
     //endregion
 
-    //Mixin into the player connect/join event and downlaod the skin for the player (needs a server restart to update)
+    //Mixin into the player connect/join event and download the skin for the player (needs a server restart to update)
     @Inject(method = "onPlayerConnect", at = @At("HEAD"))
     private void chatheads$invokeDownloadOnJoin(ClientConnection connection, ServerPlayerEntity player, ConnectedClientData clientData, CallbackInfo ci) {
         final var profile = player.getGameProfile();
         //Use a new Thread since downloading a skin is slow and would slow down the player joining process
         new Thread(() -> {
             synchronized (HEAD_CACHE) {
-                final TextColor[][] head = HEAD_CACHE.computeIfAbsent(player.getUuid(), uuid -> chatheads$getPlayerHead(profile, player));
-                HEAD_CACHE.put(profile.getId(), head);
+                // FIXED: profile.id()
+                final TextColor[][] head = HEAD_CACHE.computeIfAbsent(profile.id(), uuid -> chatheads$getPlayerHead(profile, player));
+                HEAD_CACHE.put(profile.id(), head);
             }
         }).start();
     }
@@ -49,8 +51,12 @@ public abstract class DownloadHeadOnJoin {
     //region Util
     @Unique
     private TextColor[][] chatheads$getPlayerHead(final GameProfile profile, final ServerPlayerEntity player) {
-        //get skin url
-        final MinecraftProfileTexture playerSkin = server.getSessionService().getTextures(profile).skin();
+        // FIX: getTextures now returns a 'MinecraftProfileTextures' Record, not a Map.
+        // We use 'var' to deduce the type automatically.
+        var textures = server.getApiServices().sessionService().getTextures(profile);
+
+        // FIX: Access the skin directly from the record using .skin()
+        final MinecraftProfileTexture playerSkin = textures.skin();
 
         //return default head if skin is null
         if (playerSkin == null) return DEFAULT_HEAD_TEXTURE;
@@ -65,6 +71,7 @@ public abstract class DownloadHeadOnJoin {
         try {
             image = ImageIO.read(URI.create(playerSkinUrl).toURL());
         } catch (Exception e) {
+            // FIXED: player.getName().getString()
             LOGGER.warn("Failed to get image for {}", player.getName().getString());
             LOGGER.warn(e.toString());
             return DEFAULT_HEAD_TEXTURE;
