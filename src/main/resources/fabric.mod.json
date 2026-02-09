@@ -27,7 +27,7 @@
   "depends": {
     "fabricloader": "<=16.0.0",
     "minecraft": "~1.21.11",
-    "polymer": "*"
+    "polymer-bundled": "*"
   },
   "suggests": {
     "styledchat": "*"
