@@ -2,12 +2,12 @@ package com.campersamu.chatheads.mixin;
 
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.minecraft.MinecraftProfileTexture;
-import net.minecraft.network.ClientConnection;
+import net.minecraft.network.Connection;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.PlayerManager;
-import net.minecraft.server.network.ConnectedClientData;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.TextColor;
+import net.minecraft.server.players.PlayerList;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.network.chat.TextColor;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -18,15 +18,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.lang.reflect.Method;
 import java.net.URI;
 // Removed unused Map import to keep things clean
 
 import static com.campersamu.chatheads.ChatHeadsInit.DEFAULT_HEAD_TEXTURE;
 import static com.campersamu.chatheads.ChatHeadsInit.HEAD_CACHE;
 import static com.campersamu.chatheads.ChatHeadsInit.LOGGER;
-import static net.minecraft.text.TextColor.fromRgb;
+import static net.minecraft.network.chat.TextColor.fromRgb;
 
-@Mixin(PlayerManager.class)
+@Mixin(PlayerList.class)
 public abstract class DownloadHeadOnJoin {
     //region Mixin Variables
     @Shadow
@@ -35,8 +36,8 @@ public abstract class DownloadHeadOnJoin {
     //endregion
 
     //Mixin into the player connect/join event and download the skin for the player (needs a server restart to update)
-    @Inject(method = "onPlayerConnect", at = @At("HEAD"))
-    private void chatheads$invokeDownloadOnJoin(ClientConnection connection, ServerPlayerEntity player, ConnectedClientData clientData, CallbackInfo ci) {
+    @Inject(method = "placeNewPlayer", at = @At("HEAD"))
+    private void chatheads$invokeDownloadOnJoin(Connection connection, ServerPlayer player, CommonListenerCookie clientData, CallbackInfo ci) {
         final var profile = player.getGameProfile();
         //Use a new Thread since downloading a skin is slow and would slow down the player joining process
         new Thread(() -> {
@@ -50,13 +51,8 @@ public abstract class DownloadHeadOnJoin {
 
     //region Util
     @Unique
-    private TextColor[][] chatheads$getPlayerHead(final GameProfile profile, final ServerPlayerEntity player) {
-        // FIX: getTextures now returns a 'MinecraftProfileTextures' Record, not a Map.
-        // We use 'var' to deduce the type automatically.
-        var textures = server.getApiServices().sessionService().getTextures(profile);
-
-        // FIX: Access the skin directly from the record using .skin()
-        final MinecraftProfileTexture playerSkin = textures.skin();
+    private TextColor[][] chatheads$getPlayerHead(final GameProfile profile, final ServerPlayer player) {
+        final MinecraftProfileTexture playerSkin = chatheads$getPlayerSkin(profile);
 
         //return default head if skin is null
         if (playerSkin == null) return DEFAULT_HEAD_TEXTURE;
@@ -87,6 +83,28 @@ public abstract class DownloadHeadOnJoin {
         }
 
         return playerHead;
+    }
+
+    @Unique
+    private MinecraftProfileTexture chatheads$getPlayerSkin(final GameProfile profile) {
+        try {
+            for (String methodName : new String[]{"services", "getApiServices"}) {
+                try {
+                    Method m = server.getClass().getMethod(methodName);
+                    Object services = m.invoke(server);
+                    Method sessionMethod = services.getClass().getMethod("sessionService");
+                    Object sessionService = sessionMethod.invoke(services);
+                    Method texturesMethod = sessionService.getClass().getMethod("getTextures", GameProfile.class);
+                    Object textures = texturesMethod.invoke(sessionService, profile);
+                    Method skinMethod = textures.getClass().getMethod("skin");
+                    return (MinecraftProfileTexture) skinMethod.invoke(textures);
+                } catch (NoSuchMethodException ignored) {
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Failed to resolve session service", e);
+        }
+        return null;
     }
     //endregion
 }

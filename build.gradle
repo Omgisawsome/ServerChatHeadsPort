@@ -1,6 +1,5 @@
 plugins {
-    // CRITICAL: Must be 1.15-SNAPSHOT for 1.21.11+
-    id 'fabric-loom' version '1.15-SNAPSHOT'
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
     id 'maven-publish'
 }
 
@@ -16,46 +15,38 @@ repositories {
 }
 
 loom {
-    splitEnvironmentSourceSets()
-    mods {
-        "custom-paintings" {
-            sourceSet sourceSets.main
-            sourceSet sourceSets.client
-        }
+    mixin {
+        defaultRefmapName = "chatheads-refmap.json"
     }
 }
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
-
-    // Using Yarn Mappings!
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-    modImplementation "eu.pb4:placeholder-api:${project.papi_version}"
-    modImplementation "eu.pb4:polymer-resource-pack:${project.polymer_version}"
-    modImplementation "eu.pb4:polymer-autohost:${project.polymer_version}"
-
-    include "eu.pb4:placeholder-api:${project.papi_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    implementation "eu.pb4:placeholder-api:${project.papi_version}"
+    implementation "eu.pb4:polymer-resource-pack:${project.polymer_version}"
+    implementation "eu.pb4:polymer-autohost:${project.polymer_version}"
 }
 
 processResources {
     inputs.property "version", project.version
+    inputs.property "loader_version", project.loader_version
     filesMatching("fabric.mod.json") {
-        expand "version": project.version
+        expand "version": project.version,
+                "loader_version": project.loader_version
     }
 }
 
 tasks.withType(JavaCompile).configureEach {
-    it.options.release = 21
+    it.options.release = 25
     it.options.encoding = "UTF-8"
 }
 
 java {
     withSourcesJar()
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
 }
 
 jar {
